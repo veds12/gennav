@@ -1,8 +1,8 @@
 import math
 
-import numpy as np
 from gennav.planners import Planner
-from gennav.utils import RobotState, Trajectory, Node
+from gennav.utils import RobotState, Trajectory
+from gennav.utils.common import Node
 from gennav.utils.custom_exceptions import (
     InvalidGoalState,
     InvalidStartState,
@@ -12,7 +12,7 @@ from gennav.utils.geometry import Point, compute_angle, compute_distance
 from gennav.utils.samplers import UniformCircularSampler
 
 
-class InformedRRTstar(Planner):
+class RRTstar(Planner):
     def __init__(
         self,
         sampler,
@@ -20,10 +20,8 @@ class InformedRRTstar(Planner):
         neighbourhood_radius=0.5,
         goal_distance=0.2,
         max_iter=500,
-        *args,
-        **kwargs
     ):
-        """InformedRRT* Class
+        """RRT* Class
 
         Args:
             sampler (gennav.utils.sampler.Sampler): sampler to get random states
@@ -85,55 +83,8 @@ class InformedRRTstar(Planner):
                             node.state.position, x_goal.state.position
                         )
             # sample the new random point using the sample function
-            if cbest < float("inf"):
-                # Converting x_start and x_goal into arrays so that matrix calculations can be handled
-                x_start_array = np.array(
-                    [x_start.state.position.x, x_start.state.position.y],
-                    dtype=np.float32,
-                ).reshape(2, 1)
-
-                x_goal_array = np.array(
-                    [x_goal.state.position.x, x_goal.state.position.y], dtype=np.float32
-                ).reshape(2, 1)
-
-                cmin = np.linalg.norm((x_goal_array - x_start_array))
-
-                x_center = (x_start_array + x_goal_array) / 2
-
-                a1 = (x_goal_array - x_start_array) / cmin
-                I1 = np.eye(len(x_start_array))[0].reshape(len(x_start_array), 1)
-
-                M = np.dot(a1, I1.T)
-
-                [u, s, v] = np.linalg.svd(M)
-
-                # numpy returns the transposed value for v, so to convert it back
-                v = v.T
-
-                # Calculating the rotation to world frame matrix given by C = U*diag{1,....1.det(U)det(V)}*V.T where * denotes matrix multiplication
-                diag = np.eye(2)
-                diag[1, 1] = np.linalg.det(u) * np.linalg.det(v)
-                C = np.dot(np.dot(u, diag), v.T)
-
-                L = np.eye(2)
-                L[0, 0] = cbest / 2
-                L[1, 1] = np.sqrt(cbest ** 2 - cmin ** 2) / 2
-
-                rand_state = self.circular_sampler()
-                x_ball = np.array(
-                    [rand_state.position.x, rand_state.position.y], dtype=np.float32
-                ).reshape(2, 1)
-
-                x_rand_array = np.dot(np.dot(C, L), x_ball) + x_center
-                x_rand = RobotState()
-                x_rand.position.x = x_rand_array[0, 0]
-                x_rand.position.y = x_rand_array[1, 0]
-
-                x_rand_node = Node(state=x_rand)
-
-            else:
-                x_rand = self.rectangular_sampler()
-                x_rand_node = Node(state=x_rand)
+            x_rand = self.rectangular_sampler()
+            x_rand_node = Node(state=x_rand)
 
             # Finding the nearest node to the random point
             distance_list = [
